@@ -1,8 +1,8 @@
+import { API_URL } from '../config';
 import React, { useState } from 'react';
 import { GoogleLogin } from '@react-oauth/google';
 import { AlertCircle, Loader } from 'lucide-react';
 
-const API_URL = import.meta.env.VITE_API_URL || 'https://telemed-seel.onrender.com';
 
 function LoginPage() {
   const [email, setEmail]       = useState('');

@@ -1,3 +1,4 @@
+import { API_URL as API_BASE_URL } from '../config';
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
@@ -11,7 +12,6 @@ const timeSlots = [
   '14:00', '14:30', '15:00', '15:30', '16:00', '16:30'
 ];
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://telemed-seel.onrender.com';
 
 const AppointmentForm = () => {
   const navigate = useNavigate();

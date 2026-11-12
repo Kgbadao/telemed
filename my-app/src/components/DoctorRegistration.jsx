@@ -1,3 +1,4 @@
+import { API_URL } from '../config';
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
@@ -7,7 +8,6 @@ import { useNavigate } from 'react-router-dom';
 // This fixes the "storage/unauthorized" error caused by JWT users not being
 // signed into Firebase client auth.
 
-const API_URL = import.meta.env.VITE_API_URL || 'https://telemed-seel.onrender.com';
 
 const SPECIALIZATIONS = [
   'General Practice', 'Cardiology', 'Pediatrics', 'Mental Health',

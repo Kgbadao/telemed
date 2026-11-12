@@ -1,57 +1,56 @@
+import { API_URL } from '../config';
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { CheckCircle, ExternalLink } from 'lucide-react';
 
-const API_URL = import.meta.env.VITE_API_URL || 'https://telemed-seel.onrender.com';
-const ADMIN_SECRET = 'telemed-123'; // hardcoded — only you know this URL
+
+// Admin access is enforced by the backend: the request must carry a valid JWT
+// whose role is 'admin'. Nothing secret lives in the frontend.
+const authHeaders = () => ({
+  Authorization: `Bearer ${localStorage.getItem('authToken')}`,
+});
 
 export default function AdminApproval() {
   const [doctors, setDoctors] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [password, setPassword] = useState('');
-  const [authed, setAuthed] = useState(false);
+  const [error, setError] = useState('');
 
   const fetchPending = async () => {
-    const res = await axios.get(`${API_URL}/api/admin/pending-doctors`, {
-      headers: { 'x-admin-secret': ADMIN_SECRET }  // ← first place
-    });
-    setDoctors(res.data);
-    setLoading(false);
+    try {
+      const res = await axios.get(`${API_URL}/api/admin/pending-doctors`, {
+        headers: authHeaders(),
+      });
+      setDoctors(res.data);
+    } catch (err) {
+      setError(
+        err.response?.status === 403 || err.response?.status === 401
+          ? 'You need to be logged in as an admin to view this page.'
+          : 'Failed to load pending doctors.'
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
-  useEffect(() => { if (authed) fetchPending(); }, [authed]);
+  useEffect(() => { fetchPending(); }, []);
 
   const approve = async (userId) => {
-    await axios.post(`${API_URL}/api/admin/approve-doctor/${userId}`, {}, {
-      headers: { 'x-admin-secret': ADMIN_SECRET }  // ← second place
-    });
-    setDoctors(doctors.filter(d => d.id !== userId));
+    try {
+      await axios.post(`${API_URL}/api/admin/approve-doctor/${userId}`, {}, {
+        headers: authHeaders(),
+      });
+      setDoctors(doctors.filter(d => d.id !== userId));
+    } catch {
+      setError('Failed to approve doctor.');
+    }
   };
-
-  if (!authed) return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="bg-white p-8 rounded-2xl shadow-lg w-80">
-        <h2 className="text-xl font-bold mb-4 text-gray-800">Admin Access</h2>
-        <input
-          type="password" placeholder="Admin password"
-          value={password} onChange={e => setPassword(e.target.value)}
-          className="w-full border border-gray-200 rounded-xl px-4 py-3 mb-4 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-        />
-        <button
-          onClick={() => { if (password === ADMIN_SECRET) setAuthed(true); }}
-          className="w-full bg-indigo-600 text-white py-3 rounded-xl font-semibold hover:bg-indigo-700 transition"
-        >
-          Enter
-        </button>
-      </div>
-    </div>
-  );
 
   return (
     <div className="min-h-screen bg-gray-50 p-8">
       <h1 className="text-2xl font-bold text-gray-800 mb-6">Pending Doctor Approvals</h1>
       {loading && <p className="text-gray-500">Loading...</p>}
-      {!loading && doctors.length === 0 && (
+      {error && <p className="text-red-600 mb-4">{error}</p>}
+      {!loading && !error && doctors.length === 0 && (
         <p className="text-gray-500">No pending doctors.</p>
       )}
       <div className="grid gap-4 max-w-3xl">

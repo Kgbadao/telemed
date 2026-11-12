@@ -46,7 +46,7 @@ app.use(cors({
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'x-admin-secret'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
 }));
 
 app.options(/.*/, cors());
@@ -761,13 +761,18 @@ app.post('/api/doctor/register', authLimiter, (req, res, next) => {
   }
 });
 
-// Admin middleware
-const verifyAdmin = (req, res, next) => {
-  if (req.headers['x-admin-secret'] !== process.env.ADMIN_SECRET) {
-    return res.status(403).json({ error: 'Forbidden' });
-  }
-  next();
-};
+// Admin middleware — requires a valid JWT whose role is 'admin'.
+// To make an admin: in the Firebase console, set role = "admin" on that user's
+// document in the `users` collection, then log in again to get a fresh token.
+const verifyAdmin = [
+  verifyToken,
+  (req, res, next) => {
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+    next();
+  },
+];
 
 // GET pending doctors
 app.get('/api/admin/pending-doctors', verifyAdmin, async (req, res) => {
@@ -824,11 +829,10 @@ app.post('/api/appointments', verifyToken, async (req, res) => {
       return res.status(400).json({ error: 'doctorId, date, and time are required' });
     }
 
-    const existingSnapshot = await db.collection('appointments')
-      .where('date', '==', date).where('time', '==', time).where('doctorId', '==', doctorId).get();
-
-    if (!existingSnapshot.empty) {
-      return res.status(409).json({ error: 'This time slot is already booked' });
+    // The doctor must exist and be an approved doctor
+    const doctorDoc = await db.collection('users').doc(String(doctorId)).get();
+    if (!doctorDoc.exists || doctorDoc.data().role !== 'doctor' || doctorDoc.data().status !== 'active') {
+      return res.status(400).json({ error: 'Invalid doctor' });
     }
 
     const newAppointment = {
@@ -838,8 +842,24 @@ app.post('/api/appointments', verifyToken, async (req, res) => {
       createdAt: new Date().toISOString(),
     };
 
-    const docRef = await db.collection('appointments').add(newAppointment);
-    res.status(201).json({ message: 'Appointment booked', appointmentId: docRef.id, data: newAppointment });
+    // The slot itself is the document ID, so Firestore guarantees only one booking
+    // per doctor/date/time even if two requests arrive at the same moment.
+    const slotId = `${doctorId}_${date}_${time}`.replace(/[\/\s:]/g, '-');
+    const ref = db.collection('appointments').doc(slotId);
+
+    try {
+      await db.runTransaction(async (t) => {
+        if ((await t.get(ref)).exists) throw new Error('SLOT_TAKEN');
+        t.set(ref, newAppointment);
+      });
+    } catch (txError) {
+      if (txError.message === 'SLOT_TAKEN') {
+        return res.status(409).json({ error: 'This time slot is already booked' });
+      }
+      throw txError;
+    }
+
+    res.status(201).json({ message: 'Appointment booked', appointmentId: ref.id, data: newAppointment });
   } catch (error) {
     console.error('Create appointment error:', error);
     res.status(500).json({ error: 'Internal server error' });

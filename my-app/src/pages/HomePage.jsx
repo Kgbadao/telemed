@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { Video, Search, MessageCircle, Monitor, Shield, Clock, DollarSign, AlertCircle, Heart, Brain, Baby, Stethoscope } from "lucide-react";
-import doctorImage from "../assets/doctor-image.png";
+import doctorImage from "../assets/doctor-image.webp";
 
 function HomePage() {
   return (

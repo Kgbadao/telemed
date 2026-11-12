@@ -1,3 +1,4 @@
+import { API_URL } from '../config';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
@@ -6,7 +7,6 @@ import {
 } from 'lucide-react';
 import { io } from 'socket.io-client';
 
-const API_URL = import.meta.env.VITE_API_URL || 'https://telemed-seel.onrender.com';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 

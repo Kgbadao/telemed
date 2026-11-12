@@ -1,8 +1,8 @@
+import { API_URL } from '../config';
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { User, Mail, Phone, FileText, Edit3, Save, X, Camera, CheckCircle } from 'lucide-react';
 
-const API_URL = import.meta.env.VITE_API_URL || 'https://telemed-seel.onrender.com';
 
 export default function Profile() {
   const [user, setUser] = useState(null);

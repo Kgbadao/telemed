@@ -1,7 +1,7 @@
+import { API_URL } from '../config';
 import { useState } from 'react';
 import { Mail, Phone, MapPin, Send, CheckCircle, MessageSquare, Clock, AlertCircle } from 'lucide-react';
 
-const API_URL = import.meta.env.VITE_API_URL || 'https://telemed-seel.onrender.com';
 
 export default function ContactPage() {
   const [form, setForm] = useState({ name: '', email: '', phone: '', subject: '', message: '' });

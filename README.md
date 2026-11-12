@@ -1,55 +1,85 @@
 # TeleMed — Telemedicine Web Platform
 
-A full-stack telemedicine platform connecting patients with healthcare providers through video consultations, secure messaging, and appointment scheduling. Built solo as a complete, working product — not a prototype.
+A full-stack telemedicine platform that connects patients with doctors through appointment booking, real-time chat and peer-to-peer video consultations. Built solo, end to end: frontend, API, real-time layer, deployment.
 
-**Live demo:** https://my-react-app-n8v7.vercel.app/
-## What It Does
+**Live demo:** https://my-react-app-n8v7.vercel.app/ &nbsp;·&nbsp; Doctor and patient data in the demo are seeded.
 
-TeleMed gives patients a complete path from finding a doctor to having a consultation:
+<!-- Add 3 screenshots here: dashboard, booking flow, video call.
+![Dashboard](docs/dashboard.png) -->
 
-- **Patient dashboard** — view upcoming and completed appointments at a glance, with quick actions to book, message, or join a call
-- **Doctor discovery** — browse by specialty (General Practice, Cardiology, Pediatrics, Mental Health) with ratings, experience, and location
-- **3-step booking flow** — choose doctor → select date/time → review and confirm, with a clean confirmation screen at the end
-- **Real-time secure messaging** — chat directly with your provider before or after a consultation
-- **Video consultations** — peer-to-peer video calls built on WebRTC
+## Features
 
-## Why the Video Call Works the Way It Does
+- **Patient dashboard** — upcoming and completed appointments with quick actions
+- **Doctor discovery** — browse approved doctors by specialty
+- **Booking flow** — choose a doctor, pick a date and time, confirm; slots can't be double-booked
+- **Real-time chat** — per-appointment rooms over Socket.io, with file sharing and message search
+- **Video consultations** — peer-to-peer calls using WebRTC (PeerJS)
+- **Doctor onboarding** — doctors register with a license; an admin approves them before they appear in search
+- **Auth** — email + password, or Google sign-in
 
-The video consultation screen uses a simple invite-ID system, similar to the link-sharing pattern in Google Classroom or Google Meet. Each user gets a shareable ID, and entering the other person's ID connects the call — no account-matching complexity, using a pattern most users already know.
+## Architecture
 
-## Tech Stack
+```
+React + Vite (Vercel)
+      │  REST (JWT) + Socket.io
+      ▼
+Express API (Render) ──► Firestore + Cloud Storage (via Firebase Admin SDK)
+      │
+      └─ Socket.io rooms (chat)        PeerJS / WebRTC (video, peer to peer)
+```
 
-- **Frontend:** React, JavaScript (ES6+), HTML5, CSS3
-- **Backend:** Node.js, Express.js
-- **Real-time communication:** WebRTC (PeerJS), Socket.io
-- **Database & Auth:** Firebase (Firestore, Authentication)
-- **Deployment:** Vercel (frontend), Render (backend)
+| Layer | Tech |
+|---|---|
+| Frontend | React 18, Vite, Tailwind CSS, React Router, Axios |
+| Backend | Node.js, Express 5, Socket.io |
+| Data | Firestore, Cloud Storage (accessed only through the backend) |
+| Auth | bcrypt-hashed passwords + signed JWTs; Google ID-token verification |
+| Real-time | Socket.io (chat), PeerJS/WebRTC (video) |
+| Hosting | Vercel (frontend), Render (backend) |
 
-## Status
+Authentication is custom (bcrypt + JWT, users stored in Firestore). Firebase Authentication is **not** used for login; the Google client library is only used to verify Google ID tokens.
 
-Fully functional product with all core flows working end-to-end: authentication, booking, dashboard, messaging, and video calls. Doctor and patient data shown in the demo are seeded for demonstration purposes.
+## Running locally
 
-**Roadmap:**
-- Payment/billing integration
-- Prescription management
-- Automated integration test suite
-
-## Quick Start
+Requires Node 18+ and a Firebase project (Firestore + Storage enabled).
 
 ```bash
 git clone https://github.com/Kgbadao/my-react-app
 cd my-react-app
-npm install
 ```
 
-Create a `.env` file with your Firebase config:
-
-```
-REACT_APP_FIREBASE_API_KEY=your_key
-REACT_APP_FIREBASE_PROJECT_ID=your_id
-```
-
+**Backend**
 ```bash
-npm run dev     # frontend
-npm start       # backend
+cd my-app/backend
+cp .env.example .env      # fill in the values (see comments inside)
+npm install
+npm start                 # http://localhost:5000
 ```
+
+**Frontend** (in a second terminal)
+```bash
+cd my-app
+cp .env.example .env      # VITE_API_URL=http://localhost:5000
+npm install
+npm run dev               # http://localhost:5173
+```
+
+**Creating an admin:** register a normal account, then in the Firebase console set `role` to `admin` on that user's document in the `users` collection and log in again. Admins can approve doctors at `/admin/approvals`.
+
+**Firestore rules:** the backend uses the Admin SDK, so clients never touch Firestore directly. Deploy [`my-app/firestore.rules`](./my-app/firestore.rules) (deny all) to lock it down.
+
+## Security measures
+
+- Passwords hashed with bcrypt (12 rounds); stored hashes are stripped from API responses
+- JWT auth on API routes and on the Socket.io handshake; chat and video rooms check that the user is the patient or doctor on that appointment
+- Admin endpoints require a JWT with the `admin` role
+- Appointment slots are claimed in a Firestore transaction, so two simultaneous requests can't book the same slot; the doctor must exist and be approved
+- Rate limiting (100 requests/min on the API, 20 per 15 min on auth routes), `helmet` headers, CORS allow-list, input sanitising (`xss`), upload size and type limits
+- Secrets live only in environment variables; `.env` files and service-account JSON are git-ignored
+
+## Known limitations and next steps
+
+- The JWT is kept in `localStorage`, which is exposed to XSS. Moving it to an `httpOnly` cookie is the next hardening step
+- No automated tests yet — the booking and auth routes are the first candidates
+- Passwords only require 6 characters, and the email-uniqueness check on signup is not transactional
+- Payments and prescription management are not built
